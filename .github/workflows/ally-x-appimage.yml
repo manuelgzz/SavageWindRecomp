@@ -1,0 +1,40 @@
+name: Ally X Linux AppImage
+
+on:
+  push:
+    branches: [fix/ally-x-radv-artifacts]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ally-x-appimage-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  appimage:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install container build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y podman
+      - name: Build native Linux x86-64 AppImage
+        run: make appimage ARCH=x86_64
+      - name: Record source and checksums
+        run: |
+          git rev-parse HEAD > build/dist/SOURCE_COMMIT.txt
+          cd build/dist
+          sha256sum ./*.AppImage > SHA256SUMS
+      - uses: actions/upload-artifact@v4
+        with:
+          name: SavageWind-ally-x-linux-x86_64
+          path: |
+            build/dist/*.AppImage
+            build/dist/SOURCE_COMMIT.txt
+            build/dist/SHA256SUMS
+          if-no-files-found: error
+          retention-days: 14
