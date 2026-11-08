@@ -1,5 +1,33 @@
 # ROG Xbox Ally X: RADV artifact test build
 
+## Confirmed player workaround, now automatic
+
+The player reports that `SAVAGEWIND_VK_SNAP_GBUFFER=1` eliminates the blue patches
+on the Radeon 890M with RADV Mesa 26.2.6 in Bazzite. The upstream compressed-volume
+and gather fixes alone, and `SAVAGEWIND_CUBE_STRICT=1`, did not eliminate them.
+
+This branch now enables G-buffer snapshots by default on Linux when RADV is
+selected, the vendor is AMD, and the selected GPU name contains
+`Radeon 890M Graphics`. Mali retains its existing default; other GPUs are
+unchanged. Explicit `SAVAGEWIND_VK_SNAP_GBUFFER=0` or `=1` still takes precedence.
+No Steam launch option or INI change is required for the Ally with this new build.
+Remove the earlier CUBE_STRICT and GPU_OVERLAP test overrides as well.
+
+On the new build, without a G-buffer environment override, the log should say:
+
+```text
+[vk] Radeon 890M/RADV: G-buffer snapshots enabled by default
+[vk] bound attachments read through snapshots: depth 0, G-buffer 1
+```
+
+The existing snapshot path copies G-buffer contents before lighting reads them;
+this avoids the live-attachment read that produced the visual defect. Additional
+copies can cost GPU time. No new rendering mechanism or shader change is added.
+The manual switch has been visually verified by the player; the automatic
+selection must still be checked using the newly compiled AppImage.
+
+## Earlier investigation
+
 This branch starts at upstream `test` commit
 `0e21a86f9855ca4875d0f504dc30ffc81ecfca6b`. It includes the existing upstream
 rendering corrections in

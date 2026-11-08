@@ -4057,11 +4057,20 @@ static void resolve_feedback(Prog *pr) {
             // On a tiler the attachment lives in tile memory during the pass, and the lighting read it wrong (walls,
             // rocks and barricades lit as sky); SAVAGEWIND_NO_LIVE_DEPTH=1 (all live reads) fixed it but lost the terrain.
             static int snap_depth = -1, snap_gbuf = -1;
-            if (snap_depth < 0) {  // (on by default on Mali; =0 turns one off)
+            if (snap_depth < 0) {  // (G-buffer snapshots default on Mali and Linux RADV/890M; =0 overrides)
                 bool mali = g_vk.is_mali;
+                // The ROG Xbox Ally X's Radeon 890M on RADV also shows blue terrain/ruin patches with live
+                // G-buffer reads. The player verified snapshots remove them (Mesa 26.2.6). Keep this narrowly
+                // scoped to that GPU/driver combination; other AMD devices retain their existing defaults.
+                bool radv_890m = false;
+#ifdef __linux__
+                radv_890m = g_vk.radv && g_vk.props.vendorID == 0x1002 &&
+                            strstr(g_vk.props.deviceName, "Radeon 890M Graphics") != NULL;
+#endif
                 const char *d = getenv("SAVAGEWIND_VK_SNAP_DEPTH"), *g = getenv("SAVAGEWIND_VK_SNAP_GBUFFER");
                 snap_depth = d ? atoi(d) != 0 : false;  // (not needed: the G-buffer half fixed the blue patches)
-                snap_gbuf = g ? atoi(g) != 0 : mali;
+                snap_gbuf = g ? atoi(g) != 0 : mali || radv_890m;
+                if (!g && radv_890m) LOG("[vk] Radeon 890M/RADV: G-buffer snapshots enabled by default\n");
                 if (snap_depth || snap_gbuf) LOG("[vk] bound attachments read through snapshots: depth %d, G-buffer %d\n", snap_depth, snap_gbuf);
             }
             if (!nolive && !snap_depth && is_depth && depth_read_only()) {
